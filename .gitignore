@@ -1,0 +1,12 @@
+# dados pessoais / materiais-fonte (fora do repositório público)
+Alunos/
+Provas 7 a 9/
+.claude/
+
+# rascunhos de imagens na raiz (não usados pelo app)
+ChatGPT Image *.png
+Gemini_Generated_Image*.jpg
+
+# python / local
+__pycache__/
+*.pyc
