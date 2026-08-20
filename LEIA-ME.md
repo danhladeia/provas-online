@@ -25,7 +25,7 @@ navegadores bloqueiam o envio para a nuvem — o resultado fica no aparelho.
 
 ## 2. Ligar o banco de dados (uma única vez)
 
-1. Painel do Supabase → projeto `lxdbepmakabpcsstlcqa` → **SQL Editor**.
+1. Painel do Supabase → projeto `ceolpdjamveblmitwogi` → **SQL Editor**.
 2. Cole todo o conteúdo do **`supabase.sql`** e clique em **Run**.
 3. Cria as tabelas `sorteios`, `avaliacoes`, `provas` (uma por turma), `tentativas`,
    `alunos_extra` (PEI/laudo), `infracoes` e `admin`, além das funções seguras

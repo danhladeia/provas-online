@@ -17,8 +17,8 @@ const CONFIG = {
   toleranciaSaida: 700,
 
   supabase: {
-    url: "https://lxdbepmakabpcsstlcqa.supabase.co",
-    key: "sb_publishable_irj05NAZHqNPY-JffHi0Mg_N7g1hcyO"
+    url: "https://ceolpdjamveblmitwogi.supabase.co",
+    key: "sb_publishable_kqVGGXyoCiwDN6ERdWfaNQ_ly2Yb7_j"
   },
 
   /* ------------------------------------------------------------

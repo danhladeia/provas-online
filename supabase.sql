@@ -1,6 +1,6 @@
 -- ============================================================
 --  EXECUTE ESTE SCRIPT NO SQL EDITOR DO SUPABASE (uma vez só)
---  Projeto: lxdbepmakabpcsstlcqa
+--  Projeto: ceolpdjamveblmitwogi
 --  Sistema unificado de provas digitais (4 turmas)
 --
 --  PIN por TURMA (não por aluno): o professor define um PIN para
