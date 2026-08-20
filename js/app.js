@@ -194,7 +194,7 @@ function irPara(tela) {
   window.scrollTo({ top: 0, behavior: "instant" });
 }
 
-/* escolheu a turma -> mostra lista de nomes + regras */
+/* escolheu a turma -> mostra campo de nome + regras */
 function selecionarTurma(id) {
   S.turma = id;
   S.cfg = cfgTurma();
@@ -204,13 +204,7 @@ function selecionarTurma(id) {
   $("#sel-turma-tema").innerHTML =
     `<b>Tema:</b> ${turma.tema} Você vai responder <b>10 questões sorteadas</b>:
      4 fáceis, 3 médias e 3 difíceis. Tempo total: <b>${fmtTempo(turma.tempoTotal || 1500)}</b>.`;
-  const lista = CONFIG.ALUNOS[id] || [];
-  $("#nome-aluno").innerHTML =
-    `<option value="">— Escolha o seu nome —</option>` +
-    lista.slice().sort((a, b) => a.localeCompare(b, "pt-BR")).map(n =>
-      `<option value="${n}">${n}</option>`).join("");
-  $("#nome-aluno").disabled = false;
-  $("#btn-comecar").disabled = false;
+  $("#nome-aluno").value = "";
   $("#aviso-nome").textContent = "";
   const rec = DADOS.recuperarSessao();
   const banner = $("#retomar-banner");
@@ -227,8 +221,8 @@ function selecionarTurma(id) {
 
 function comecarProva(ev) {
   ev.preventDefault();
-  const nome = $("#nome-aluno").value;
-  if (!nome) { $("#aviso-nome").textContent = "Escolha o seu nome na lista."; return; }
+  const nome = $("#nome-aluno").value.trim().replace(/\s+/g, " ");
+  if (nome.length < 3) { $("#aviso-nome").textContent = "Digite o seu nome completo."; return; }
 
   const btn = $("#btn-comecar");
   btn.disabled = true;
@@ -872,5 +866,5 @@ document.addEventListener("DOMContentLoaded", () => {
 
   $("#btn-trocar-turma").onclick = () => irPara("tela-inicio");
   $("#form-inicio").addEventListener("submit", comecarProva);
-  $("#nome-aluno").addEventListener("change", () => $("#aviso-nome").textContent = "");
+  $("#nome-aluno").addEventListener("input", () => $("#aviso-nome").textContent = "");
 });

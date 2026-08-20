@@ -71,10 +71,11 @@
       </ul>
 
       <form id="form-inicio" class="campo-nome" autocomplete="off">
-        <label for="nome-aluno">Escolha o seu nome:</label>
-        <select id="nome-aluno" required></select>
+        <label for="nome-aluno">Digite o seu nome completo:</label>
+        <input id="nome-aluno" name="nome" type="text" placeholder="Ex.: Maria Clara Pereira Santos"
+               autocomplete="off" maxlength="80" required>
         <p class="aviso" id="aviso-nome"></p>
-        <button class="btn-grande" id="btn-comecar" type="submit" disabled>🏁 Começar a avaliação</button>
+        <button class="btn-grande" id="btn-comecar" type="submit">🏁 Começar a avaliação</button>
       </form>
     </div>
   </div>

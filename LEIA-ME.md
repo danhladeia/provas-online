@@ -13,7 +13,7 @@ Dê dois cliques em **`ABRIR PROVA.bat`**. Ele sobe um servidor local e abre o n
 `http://localhost:8123`. Para os alunos usarem os próprios aparelhos na mesma rede Wi-Fi,
 use `http://SEU-IP:8123` (o `.bat` mostra o IP).
 
-**Fluxo do aluno:** escolhe a **turma** → escolhe o **nome na lista** → lê as regras →
+**Fluxo do aluno:** escolhe a **turma** → digita o **próprio nome** → lê as regras →
 faz a prova.
 
 **Jeito simples (sem servidor):** dois cliques em `index.html`. Funciona igual — tudo roda
@@ -96,7 +96,9 @@ assets/sprites/         64 ilustrações com fundo transparente
 ### Ajustes rápidos (`js/config.js`)
 - `TURMAS` — temas, `distribuicao`, `pesos`, `fatorMinimo`, `multiplicadorTempo`,
   `tempoTotal` (segundos) por turma.
-- `ALUNOS` — listas de nomes por turma (o aluno escolhe o próprio nome).
+- Não há mais lista de alunos no código: o aluno **digita o próprio nome** na hora de
+  começar. Isso é proposital — este repositório é público no GitHub, e nomes de alunos
+  (menores de idade) não devem ficar no código-fonte.
 
 ### Deixar a prova mais longa
 Em `config.js`, na turma desejada:
