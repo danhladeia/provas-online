@@ -1,8 +1,8 @@
 /* ============================================================
    MOTOR DA AVALIAÇÃO GAMIFICADA — sistema unificado (4 turmas)
-   Fluxo: selecionar turma → escolher nome → PIN → prova → resultado
-   Recursos: PIN com bcrypt no banco, tela cheia + detecção de saída,
-   recuperação de sessão e tempo extra (PEI/laudo).
+   Fluxo: selecionar turma → escolher nome → prova → resultado
+   Sem PIN e sem senha. Tudo roda e é salvo no próprio aparelho
+   (localStorage), com recuperação de sessão em caso de fechar a página.
    ============================================================ */
 const $  = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
@@ -51,9 +51,9 @@ const S = {
   turma: null, banco: null, cfg: null,
   aluno: "", questoes: [], idx: 0, registros: [],
   tQ0: 0, tick: null, tickTotal: null, prova0: 0,
-  tempoTotal: 0, tempoExtra: 0, provaId: null, tentativaId: null,
+  tempoTotal: 0,
   resposta: null, respondida: false, andamento: false,
-  pontos: 0, sequencia: 0, melhorSequencia: 0, infracoes: 0
+  pontos: 0, sequencia: 0, melhorSequencia: 0
 };
 
 const cfgTurma = () => CONFIG.TURMAS.find(t => t.id === S.turma);
@@ -61,8 +61,8 @@ const cfgTurma = () => CONFIG.TURMAS.find(t => t.id === S.turma);
 /* ====================================================================
    1. SORTEIO ANTI-REPETIÇÃO (por turma)
    ==================================================================== */
-async function sortearQuestoes(aluno) {
-  const anteriores = await NUVEM.buscarSorteios(S.turma);
+function sortearQuestoes(aluno) {
+  const anteriores = DADOS.buscarSorteios(S.turma);
   const provasAntigas = anteriores.map(s => s.questoes || []).filter(p => p.length);
 
   const uso = {};
@@ -98,7 +98,7 @@ async function sortearQuestoes(aluno) {
   }
 
   const questoes = embaralhar(escolhidas);
-  NUVEM.salvarSorteio(aluno, S.turma, questoes.map(q => q.id));
+  DADOS.salvarSorteio(aluno, S.turma, questoes.map(q => q.id));
   return questoes;
 }
 
@@ -211,12 +211,10 @@ function selecionarTurma(id) {
       `<option value="${n}">${n}</option>`).join("");
   $("#nome-aluno").disabled = false;
   $("#btn-comecar").disabled = false;
-  $("#pin-aluno").value = "";
-  $("#pin-aluno").disabled = false;
   $("#aviso-nome").textContent = "";
-  const rec = NUVEM.recuperarSessao();
+  const rec = DADOS.recuperarSessao();
   const banner = $("#retomar-banner");
-  if (rec && rec.turma === id && rec.tentativaId) {
+  if (rec && rec.turma === id && rec.aluno) {
     banner.style.display = "block";
     banner.querySelector("#retomar-info").textContent =
       `${rec.aluno} — questão ${(rec.idx || 0) + 1} de ${(rec.questoes || []).length}`;
@@ -227,35 +225,21 @@ function selecionarTurma(id) {
   irPara("tela-nome");
 }
 
-async function comecarProva(ev) {
+function comecarProva(ev) {
   ev.preventDefault();
   const nome = $("#nome-aluno").value;
   if (!nome) { $("#aviso-nome").textContent = "Escolha o seu nome na lista."; return; }
-  const pin = $("#pin-aluno").value.trim();
-  if (pin.length < 4) { $("#aviso-nome").textContent = "Digite o PIN que o professor informou."; return; }
 
   const btn = $("#btn-comecar");
   btn.disabled = true;
-  btn.textContent = "Validando PIN…";
-
-  const reg = await NUVEM.validarPin(pin, S.turma, nome);
-  if (!reg) {
-    $("#aviso-nome").textContent = "PIN inválido, prova fechada ou você já a concluiu. Fale com o professor.";
-    btn.disabled = false;
-    btn.textContent = "🏁 Começar a avaliação";
-    return;
-  }
+  btn.textContent = "Sorteando sua prova…";
 
   S.aluno = nome;
-  S.provaId = reg.provaId;
-  S.tentativaId = reg.tentativaId;
-  S.tempoExtra = reg.tempo_extra || 0;
-  S.tempoTotal = (S.cfg.tempoTotal || 1500) + S.tempoExtra;
+  S.tempoTotal = S.cfg.tempoTotal || 1500;
 
-  btn.textContent = "Sorteando sua prova…";
-  S.questoes = await sortearQuestoes(nome);
+  S.questoes = sortearQuestoes(nome);
   S.idx = 0; S.registros = []; S.pontos = 0;
-  S.sequencia = 0; S.melhorSequencia = 0; S.infracoes = 0; S.finalizando = false;
+  S.sequencia = 0; S.melhorSequencia = 0; S.finalizando = false;
   S.prova0 = Date.now();
   S.andamento = true;
 
@@ -265,23 +249,24 @@ async function comecarProva(ev) {
   mostrarQuestao();
   iniciarTempoTotal();
   salvarProgresso();
-  entrarTelaCheia();
   window.onbeforeunload = () => "Sua prova está em andamento. Sair agora perde tudo.";
+
+  btn.disabled = false;
+  btn.textContent = "🏁 Começar a avaliação";
 }
 
 /* recupera uma prova interrompida (se a página foi fechada sem querer) */
 function retomarSessao() {
-  const rec = NUVEM.recuperarSessao();
+  const rec = DADOS.recuperarSessao();
   if (!rec || rec.turma !== S.turma) return;
   S.turma = rec.turma; S.cfg = cfgTurma(); S.banco = BANCOS[S.turma];
-  S.aluno = rec.aluno; S.provaId = rec.provaId; S.tentativaId = rec.tentativaId;
-  S.tempoExtra = rec.tempoExtra || 0;
-  S.tempoTotal = (S.cfg.tempoTotal || 1500) + S.tempoExtra;
+  S.aluno = rec.aluno;
+  S.tempoTotal = S.cfg.tempoTotal || 1500;
   S.questoes = (rec.questoes || []).map(qid =>
     S.banco.questoes.find(q => q.id === qid)).filter(Boolean);
   S.idx = rec.idx || 0; S.registros = rec.registros || [];
   S.pontos = rec.pontos || 0; S.sequencia = rec.sequencia || 0;
-  S.melhorSequencia = rec.melhorSequencia || 0; S.infracoes = rec.infracoes || 0;
+  S.melhorSequencia = rec.melhorSequencia || 0;
   S.prova0 = Date.now() - (rec.tempoDecorrido || 0);
   S.finalizando = false; S.andamento = true;
 
@@ -290,18 +275,16 @@ function retomarSessao() {
   irPara("tela-prova");
   mostrarQuestao();
   iniciarTempoTotal();
-  entrarTelaCheia();
   window.onbeforeunload = () => "Sua prova está em andamento. Sair agora perde tudo.";
 }
 
 function salvarProgresso() {
   if (!S.andamento) return;
-  NUVEM.salvarSessao({
-    turma: S.turma, aluno: S.aluno, provaId: S.provaId, tentativaId: S.tentativaId,
-    tempoExtra: S.tempoExtra, tempoDecorrido: Date.now() - S.prova0,
+  DADOS.salvarSessao({
+    turma: S.turma, aluno: S.aluno, tempoDecorrido: Date.now() - S.prova0,
     questoes: S.questoes.map(q => q.id), idx: S.idx,
     registros: S.registros, pontos: S.pontos,
-    sequencia: S.sequencia, melhorSequencia: S.melhorSequencia, infracoes: S.infracoes
+    sequencia: S.sequencia, melhorSequencia: S.melhorSequencia
   });
 }
 
@@ -808,7 +791,6 @@ async function finalizar(forcado = false) {
     <p class="fim-aluno">${S.aluno}</p>
     <div class="nota-grande"><span>${nota.toFixed(2).replace(".", ",")}</span><small>nota final</small></div>
     <p class="fim-recado">${recado}</p>
-    ${S.infracoes ? `<p class="fim-aviso">⚠️ Registradas ${S.infracoes} saída(s) de tela durante a prova.</p>` : ""}
     <div class="fim-numeros">
       <div><b>${acertos.toFixed(1).replace(".", ",")}</b><span>de ${S.questoes.length} questões</span></div>
       <div><b>${S.pontos}</b><span>pontos de XP</span></div>
@@ -841,20 +823,16 @@ async function finalizar(forcado = false) {
         </div>`;
       }).join("")}
     </div>
-    <p class="status-envio" id="status-envio">Enviando resultado para o professor…</p>`;
+    <p class="status-envio" id="status-envio">Salvando resultado neste aparelho…</p>`;
 
-  const enviado = await NUVEM.salvarAvaliacao({
+  DADOS.salvarAvaliacao({
     aluno: S.aluno, turma: S.turma, nota, acertos: +acertos.toFixed(2),
     total: S.questoes.length, tempo_total: tempoTotal,
-    detalhes: { pontos: S.pontos, melhor_sequencia: S.melhorSequencia,
-                infracoes: S.infracoes, questoes: S.registros }
+    detalhes: { pontos: S.pontos, melhor_sequencia: S.melhorSequencia, questoes: S.registros }
   });
-  await NUVEM.concluirProva(S.tentativaId);
-  NUVEM.limparSessao();
-  $("#status-envio").innerHTML = enviado
-    ? "✅ Resultado enviado para o professor."
-    : "⚠️ Sem internet: o resultado ficou salvo <b>neste aparelho</b>. Avise o professor antes de fechar a página.";
-  sairTelaCheia();
+  DADOS.limparSessao();
+  $("#status-envio").innerHTML =
+    "✅ Resultado salvo <b>neste aparelho</b>. Mostre esta tela para o professor.";
 }
 
 /* ---------------------------------------------------- confetes */
@@ -880,66 +858,6 @@ function confetes() {
   })();
 }
 
-/* ====================================================================
-   6. TELA CHEIA E VIGILÂNCIA (detecção de saída)
-   ==================================================================== */
-function entrarTelaCheia() {
-  const el = document.documentElement;
-  const p = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen;
-  if (p && !document.fullscreenElement) p.call(el).catch(() => {});
-}
-function sairTelaCheia() {
-  if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
-}
-
-let saidaInicio = 0;
-
-function registrarInfracao(tipo) {
-  S.infracoes++;
-  NUVEM.registrarInfracao(S.tentativaId, tipo, Math.round((Date.now() - saidaInicio) / 1000));
-}
-
-function mostrarBloqueio() {
-  const b = $("#bloqueio");
-  b.classList.add("ativo");
-  $("#bloqueio-contador").textContent = S.infracoes;
-}
-function esconderBloqueio() {
-  $("#bloqueio").classList.remove("ativo");
-}
-
-function vigiarFoco() {
-  const fora = () => {
-    if (!S.andamento) return;
-    if (document.hidden || !document.hasFocus()) {
-      saidaInicio = Date.now();
-      setTimeout(() => {
-        if (S.andamento && (document.hidden || !document.hasFocus()) &&
-            Date.now() - saidaInicio > CONFIG.toleranciaSaida) {
-          registrarInfracao("trocou_de_aba");
-          mostrarBloqueio();
-          entrarTelaCheia();
-        }
-      }, CONFIG.toleranciaSaida + 150);
-    }
-  };
-  document.addEventListener("visibilitychange", fora);
-  window.addEventListener("blur", fora);
-  document.addEventListener("fullscreenchange", () => {
-    if (document.fullscreenElement) { esconderBloqueio(); return; }
-    if (!S.andamento) return;
-    saidaInicio = Date.now();
-    setTimeout(() => {
-      if (!document.fullscreenElement && S.andamento &&
-          Date.now() - saidaInicio > CONFIG.toleranciaSaida) {
-        registrarInfracao("saida_de_tela");
-        mostrarBloqueio();
-        entrarTelaCheia();
-      }
-    }, CONFIG.toleranciaSaida + 150);
-  });
-}
-
 /* ---------------------------------------------------- início */
 document.addEventListener("DOMContentLoaded", () => {
   /* turmas */
@@ -955,7 +873,4 @@ document.addEventListener("DOMContentLoaded", () => {
   $("#btn-trocar-turma").onclick = () => irPara("tela-inicio");
   $("#form-inicio").addEventListener("submit", comecarProva);
   $("#nome-aluno").addEventListener("change", () => $("#aviso-nome").textContent = "");
-  $("#pin-aluno").addEventListener("input", () => $("#aviso-nome").textContent = "");
-
-  vigiarFoco();
 });

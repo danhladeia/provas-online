@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Avaliação 2º Trimestre — Educação Física</title>
 <link rel="icon" href="assets/sprites/apito.png">
+<link rel="apple-touch-icon" href="assets/sprites/apito.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#1F3C88">
 <link rel="stylesheet" href="css/estilo.css">
 </head>
 <body>
@@ -25,7 +28,7 @@
         </div>
       </div>
 
-      <p class="faixa-tema"><b>Olá, estudante!</b> Escolha a sua turma para começar.
+      <p class="faixa-tema"><b>Olá, estudante!</b> Escolha a sua turma e o seu nome para começar.
       Você vai responder <b>10 questões sorteadas</b>: 4 fáceis, 3 médias e 3 difíceis.</p>
 
       <div class="grade-turmas" id="grade-turmas"></div>
@@ -34,7 +37,7 @@
   </div>
 </section>
 
-<!-- ============================================ TELA 2: NOME + PIN -->
+<!-- ============================================ TELA 2: ESCOLHER NOME -->
 <section id="tela-nome" class="tela">
   <div class="wrap">
     <div class="capa">
@@ -63,19 +66,13 @@
           <span>Passou do tempo de leitura, o valor da questão <b>começa a cair</b> — leia com atenção, mas não durma no ponto!</span></li>
         <li><img src="assets/sprites/nivel3.png" alt="">
           <span>As questões e as alternativas vêm <b>embaralhadas</b>: a sua prova é diferente da do colega.</span></li>
-        <li><img src="assets/sprites/cadeado_fechado.png" alt="">
-          <span>A prova abre em <b>tela cheia</b>. Sair da tela ou trocar de aba é registrado e avisa o professor.</span></li>
         <li><img src="assets/sprites/lampada.png" alt="">
           <span>Depois de confirmar, você vê <b>onde errou e por quê</b>. Não dá para voltar.</span></li>
       </ul>
 
       <form id="form-inicio" class="campo-nome" autocomplete="off">
-        <label for="nome-aluno">1️⃣ Escolha o seu nome:</label>
+        <label for="nome-aluno">Escolha o seu nome:</label>
         <select id="nome-aluno" required></select>
-
-        <label for="pin-aluno">2️⃣ Digite o PIN da prova (o professor informa):</label>
-        <input id="pin-aluno" name="pin" type="password" inputmode="numeric"
-               placeholder="Ex.: 4521" maxlength="8" required>
         <p class="aviso" id="aviso-nome"></p>
         <button class="btn-grande" id="btn-comecar" type="submit" disabled>🏁 Começar a avaliação</button>
       </form>
@@ -117,23 +114,17 @@
   </div>
 </section>
 
-<!-- bloqueio ao sair da tela cheia -->
-<div id="bloqueio">
-  <div class="bloqueio-caixa">
-    <img src="assets/sprites/cadeado_fechado.png" alt="">
-    <h2>Volte para a prova!</h2>
-    <p>Você saiu da tela cheia. Isso foi registrado.</p>
-    <p class="bloqueio-contador">Saídas registradas: <b id="bloqueio-contador">0</b></p>
-    <button class="btn-grande" onclick="entrarTelaCheia()">Voltar à tela cheia</button>
-  </div>
-</div>
-
 <script src="js/config.js"></script>
-<script src="js/nuvem.js"></script>
+<script src="js/dados.js"></script>
 <script src="js/banco.js"></script>
 <script src="js/banco7.js"></script>
 <script src="js/banco8.js"></script>
 <script src="js/banco9.js"></script>
 <script src="js/app.js"></script>
+<script>
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => navigator.serviceWorker.register("sw.js"));
+  }
+</script>
 </body>
 </html>

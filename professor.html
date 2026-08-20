@@ -5,25 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Área do Professor — Educação Física</title>
 <link rel="icon" href="assets/sprites/prancheta.png">
+<link rel="apple-touch-icon" href="assets/sprites/prancheta.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#1F3C88">
 <link rel="stylesheet" href="css/estilo.css">
 </head>
 <body>
 
-<!-- ---------------------------------------------- login -->
-<section id="login" class="login-prof">
-  <img src="assets/sprites/cadeado_fechado.png" alt="">
-  <h1 style="margin:6px 0 0; font-size:22px">Área do Professor</h1>
-  <p style="color:var(--cinza); font-size:14px; margin:4px 0 0">Avaliação 2º Trimestre • 4 turmas</p>
-  <form id="form-senha" autocomplete="off">
-    <input id="senha" type="password" placeholder="Senha de acesso" autocomplete="current-password">
-    <p class="aviso" id="aviso-senha"></p>
-    <button class="btn-grande" type="submit">Entrar</button>
-  </form>
-  <p style="margin-top:14px"><a href="index.html" style="color:var(--invasao); font-size:14px">← Voltar para a prova</a></p>
-</section>
-
 <!-- ---------------------------------------------- painel -->
-<section id="painel" class="painel-prof">
+<section id="painel" class="painel-prof ativo">
   <header class="hud">
     <div class="quem">Área do Professor<small>Avaliação 2º Trimestre</small></div>
     <div class="med">
@@ -31,9 +21,9 @@
       <select id="turma-painel" style="padding:8px; border-radius:10px; font-family:inherit; font-size:14px"></select>
     </div>
     <div class="espaco"></div>
-    <span id="status-nuvem" class="tag">conectando…</span>
+    <span id="status-nuvem" class="tag">📱 dados deste aparelho</span>
     <button class="btn-sec" id="btn-atualizar">↻ Atualizar</button>
-    <button class="btn-sec alt" id="btn-sair">Sair</button>
+    <a class="btn-sec alt" href="index.html">← Voltar para a prova</a>
   </header>
 
   <div class="wrap">
@@ -49,12 +39,11 @@
       </select>
       <button class="btn-sec" id="btn-csv">⬇ Baixar CSV</button>
       <button class="btn-sec" id="btn-imprimir">🖨 Imprimir</button>
-      <button class="btn-sec alt" id="btn-pendentes">☁ Reenviar pendentes</button>
     </div>
 
     <table class="tabela-notas">
       <thead>
-        <tr><th>Aluno</th><th>Nota</th><th>Acertos</th><th>Tempo</th><th>XP</th><th>Quando</th><th>Origem</th><th></th></tr>
+        <tr><th>Aluno</th><th>Nota</th><th>Acertos</th><th>Tempo</th><th>XP</th><th>Quando</th><th></th></tr>
       </thead>
       <tbody id="corpo-notas"></tbody>
     </table>
@@ -72,92 +61,20 @@
       <tbody id="corpo-questoes"></tbody>
     </table>
 
-    <h2 style="margin-top:30px; font-size:20px">🔑 PIN da turma</h2>
-    <p style="color:var(--cinza); font-size:14px; margin-top:-6px">
-      Um único PIN por turma — todos os alunos usam o mesmo. A prova só aceita PIN enquanto estiver <b>aberta</b>.
-    </p>
-
-    <div class="card-turma" id="card-pin-turma" style="margin-bottom:14px; box-shadow:none">
-      <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap">
-        <span class="turma-nome" id="pin-turma-nome">—</span>
-        <span class="tag" id="pin-aberta-tag">—</span>
-        <button class="btn-sec" id="btn-alterna-aberta">Abrir/Fechar</button>
-      </div>
-      <p class="turma-tema" id="pin-turma-extra" style="margin:4px 0 0">Tempo extra padrão da turma: —</p>
-    </div>
-
-    <form id="form-pin" class="campo-nome" autocomplete="off" style="margin:0 0 10px">
-      <div class="ferramentas" style="margin:0; align-items:flex-end">
-        <div style="flex:1; min-width:160px">
-          <label for="pin-valor" style="font-size:13px">Novo PIN da turma (4–8 dígitos)</label>
-          <input id="pin-valor" type="text" inputmode="numeric" placeholder="Ex.: 4521" maxlength="8" style="width:100%">
-        </div>
-        <div style="flex:1; min-width:150px">
-          <label for="pin-extra" style="font-size:13px">Tempo extra padrão da turma</label>
-          <select id="pin-extra">
-            <option value="0">Sem extra</option>
-            <option value="300">+5 min</option>
-            <option value="600">+10 min</option>
-            <option value="900">+15 min</option>
-          </select>
-        </div>
-        <button class="btn-grande" id="btn-emitir" type="submit" style="flex:0 0 auto; width:auto; padding:12px 18px; font-size:16px; margin:0">Definir PIN e abrir</button>
-      </div>
-      <p class="aviso" id="aviso-pin"></p>
-    </form>
-
-    <form id="form-extra" class="campo-nome" autocomplete="off" style="margin:0 0 14px">
-      <p style="font-size:14px; color:var(--cinza); margin:0 0 6px">
-        Tempo extra individual para PEI / laudo (soma ao padrão da turma):
-      </p>
-      <div class="ferramentas" style="margin:0; align-items:flex-end">
-        <div style="flex:2; min-width:200px">
-          <label for="extra-aluno-nome" style="font-size:13px">Aluno</label>
-          <select id="extra-aluno-nome"></select>
-        </div>
-        <div style="flex:1; min-width:150px">
-          <label for="extra-valor" style="font-size:13px">Tempo extra</label>
-          <select id="extra-valor">
-            <option value="0">Sem extra</option>
-            <option value="300">+5 min</option>
-            <option value="600">+10 min</option>
-            <option value="900">+15 min</option>
-          </select>
-        </div>
-        <button class="btn-sec" id="btn-aplicar-extra" type="submit" style="margin:0">Aplicar</button>
-      </div>
-      <p class="aviso" id="aviso-extra"></p>
-    </form>
-
-    <table class="tabela-notas" id="tabela-pins">
-      <thead><tr><th>Aluno</th><th>Status</th><th>Tempo extra</th><th>Início</th><th>Fim</th><th>Saídas</th></tr></thead>
-      <tbody id="corpo-pins"></tbody>
-    </table>
-    <div id="vazio-pins" class="vazio" style="display:none">
-      Nenhum aluno iniciou a prova desta turma ainda.
-    </div>
-    <p style="color:var(--cinza); font-size:13px" id="resumo-alunos-extra"></p>
-
-    <h2 style="margin-top:30px; font-size:20px">🚨 Saídas de tela / trocas de aba</h2>
-    <p style="color:var(--cinza); font-size:14px; margin-top:-6px">
-      Registros automáticos do sistema de vigilância das provas.
-    </p>
-    <table class="tabela-notas" id="tabela-infracoes">
-      <thead><tr><th>Aluno</th><th>Tipo</th><th>Tempo fora</th><th>Quando</th></tr></thead>
-      <tbody id="corpo-infracoes"></tbody>
-    </table>
-    <div id="vazio-infracoes" class="vazio" style="display:none">
-      Nenhuma infração registrada.
-    </div>
   </div>
 </section>
 
 <script src="js/config.js"></script>
-<script src="js/nuvem.js"></script>
+<script src="js/dados.js"></script>
 <script src="js/banco.js"></script>
 <script src="js/banco7.js"></script>
 <script src="js/banco8.js"></script>
 <script src="js/banco9.js"></script>
 <script src="js/professor.js"></script>
+<script>
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => navigator.serviceWorker.register("sw.js"));
+  }
+</script>
 </body>
 </html>

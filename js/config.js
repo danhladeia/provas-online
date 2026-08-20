@@ -9,17 +9,9 @@ const CONFIG = {
   titulo:  "Avaliação 2º Trimestre",
   materia: "Educação Física",
 
-  // A senha do professor NÃO fica aqui: o login é validado no banco
-  // pela função SECURITY DEFINER validar_admin (hash bcrypt em supabase.sql).
-  // Sem internet, a área do professor não abre — segurança em primeiro lugar.
-
-  // tolerância (ms) antes de contar uma saída de tela
-  toleranciaSaida: 700,
-
-  supabase: {
-    url: "https://ceolpdjamveblmitwogi.supabase.co",
-    key: "sb_publishable_kqVGGXyoCiwDN6ERdWfaNQ_ly2Yb7_j"
-  },
+  // Sem PIN e sem senha: o aluno escolhe a turma e o nome e já começa.
+  // Tudo fica salvo no aparelho (localStorage), sem nuvem — o app funciona
+  // como PWA instalável e 100% offline.
 
   /* ------------------------------------------------------------
      TURMAS — uma entrada por turma.
