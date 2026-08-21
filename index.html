@@ -25,10 +25,9 @@
         </div>
       </div>
 
-      <p class="faixa-tema"><b>Olá, estudante!</b> Escolha a sua turma para começar.
-      Você vai responder <b>10 questões sorteadas</b>: 4 fáceis, 3 médias e 3 difíceis.</p>
+      <p class="faixa-tema"><b>Olá, estudante!</b> Escolha a sua turma para começar.</p>
 
-      <div class="grade-turmas" id="grade-turmas"></div>
+      <div id="grade-turmas"></div>
       <p class="rodape-capa"><a href="professor.html">Área do professor</a></p>
     </div>
   </div>
@@ -69,16 +68,38 @@
           <span>Depois de confirmar, você vê <b>onde errou e por quê</b>. Não dá para voltar.</span></li>
       </ul>
 
-      <form id="form-inicio" class="campo-nome" autocomplete="off">
-        <label for="nome-aluno">1️⃣ Escolha o seu nome:</label>
-        <select id="nome-aluno" required></select>
-
-        <label for="pin-aluno">2️⃣ Digite o PIN da prova (o professor informa):</label>
+      <form id="form-pin-primeiro" class="campo-nome" autocomplete="off">
+        <label for="pin-aluno">1️⃣ Digite o PIN da prova (o professor informa):</label>
         <input id="pin-aluno" name="pin" type="password" inputmode="numeric"
                placeholder="Ex.: 4521" maxlength="8" required>
-        <p class="aviso" id="aviso-nome"></p>
-        <button class="btn-grande" id="btn-comecar" type="submit" disabled>🏁 Começar a avaliação</button>
+        <p class="aviso" id="aviso-pin-primeiro"></p>
+        <button class="btn-grande" id="btn-validar-pin" type="submit">Validar PIN</button>
       </form>
+
+      <form id="form-inicio" class="campo-nome" autocomplete="off" style="display:none">
+        <label for="nome-aluno">2️⃣ Escolha o seu nome:</label>
+        <select id="nome-aluno" required></select>
+        <p class="aviso" id="aviso-nome"></p>
+        <button class="btn-grande" id="btn-comecar" type="submit">🏁 Começar a avaliação</button>
+      </form>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================ TELA 2.5: PORTÃO DE TELA CHEIA -->
+<section id="tela-gate" class="tela">
+  <div class="wrap">
+    <div class="capa">
+      <div class="capa-topo">
+        <img src="assets/sprites/cadeado_fechado.png" alt="">
+        <div class="capa-titulos">
+          <p class="sub">Última etapa antes de começar</p>
+          <h1>A prova abre em tela cheia</h1>
+        </div>
+      </div>
+      <p class="faixa-tema">Clique no botão abaixo para entrar em <b>tela cheia</b> e iniciar a prova.
+      Sair da tela cheia ou trocar de aba durante a prova é registrado automaticamente.</p>
+      <button class="btn-grande" id="btn-gate-tela-cheia">🔒 Entrar em tela cheia e começar</button>
     </div>
   </div>
 </section>
@@ -134,6 +155,8 @@
 <script src="js/banco7.js"></script>
 <script src="js/banco8.js"></script>
 <script src="js/banco9.js"></script>
+<script src="js/banco-agro.js"></script>
+<script src="js/banco-3a.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

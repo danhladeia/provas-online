@@ -158,11 +158,19 @@ const NUVEM = (() => {
     /* valida o PIN da TURMA para este aluno.
        Retorna { provaId, tentativaId, aluno, turma, tempo_extra } ou null.
        Com nuvem fora, usa o espelho local (provas_locais). */
+    /* lista de nomes da turma — só é liberada pelo banco se o PIN estiver certo */
+    async listarNomesTurma(pin, turma) {
+      const reg = await this.rpc("listar_nomes_turma", { p_pin: pin, p_turma: turma });
+      if (reg.ok && Array.isArray(reg.data)) return reg.data.map(r => r.aluno);
+      return null;
+    },
+
     async validarPin(pin, turma, aluno) {
       const reg = await this.rpc("validar_pin", { p_pin: pin, p_turma: turma, p_aluno: aluno });
-      if (reg.ok && reg.data) return {
-        provaId: String(reg.data.prova_id), tentativaId: String(reg.data.tentativa_id),
-        aluno: reg.data.aluno, turma: reg.data.turma, tempo_extra: Number(reg.data.tempo_extra || 0)
+      const linha = Array.isArray(reg.data) ? reg.data[0] : reg.data;
+      if (reg.ok && linha) return {
+        provaId: String(linha.prova_id), tentativaId: String(linha.tentativa_id),
+        aluno: linha.aluno, turma: linha.turma, tempo_extra: Number(linha.tempo_extra || 0)
       };
       const pr = LS.ler("provas_locais", []).find(p => p.turma === turma && p.pin === pin && p.aberta);
       if (pr) {
@@ -178,18 +186,34 @@ const NUVEM = (() => {
 
     /* registra uma infração (saída de tela, troca de aba...) */
     async registrarInfracao(tentativaId, tipo, segundosFora) {
-      const reg = { tentativa_id: String(tentativaId).startsWith("local-") ? null : tentativaId,
-                    tipo, segundos_fora: segundosFora || 0 };
+      const idValido = String(tentativaId).startsWith("local-") ? null : tentativaId;
       const local = LS.ler("infracoes_local", []);
-      local.push({ ...reg, criado_em: new Date().toISOString() });
+      local.push({ tentativa_id: idValido, tipo, segundos_fora: segundosFora || 0,
+                   criado_em: new Date().toISOString() });
       LS.gravar("infracoes_local", local);
-      await this.rpc("registrar_infracao", reg);
+      await this.rpc("registrar_infracao",
+        { p_tentativa_id: idValido, p_tipo: tipo, p_segundos_fora: segundosFora || 0 });
     },
 
     /* marca a tentativa como concluída */
     async concluirProva(tentativaId) {
       if (String(tentativaId).startsWith("local-")) return true;
       return (await this.rpc("concluir_prova", { p_tentativa_id: tentativaId })).ok;
+    },
+
+    /* progresso ao vivo (questão atual / pontos) — visto no painel do professor */
+    async atualizarProgresso(tentativaId, idx, pontos, total) {
+      if (String(tentativaId).startsWith("local-")) return;
+      await this.rpc("atualizar_progresso",
+        { p_tentativa_id: tentativaId, p_idx: idx, p_pontos: pontos, p_total: total });
+    },
+
+    /* aluno consulta se o professor ajustou tempo/penalidade da própria tentativa */
+    async consultarAjuste(tentativaId) {
+      if (String(tentativaId).startsWith("local-")) return { ajuste_tempo: 0, penalidade_manual: 0 };
+      const reg = await this.rpc("consultar_ajuste", { p_tentativa_id: tentativaId });
+      const linha = Array.isArray(reg.data) ? reg.data[0] : reg.data;
+      return linha ? { ajuste_tempo: Number(linha.ajuste_tempo || 0), penalidade_manual: Number(linha.penalidade_manual || 0) } : null;
     },
 
     /* ---------- sessão (recuperar prova interrompida) ---------- */
@@ -262,6 +286,16 @@ const NUVEM = (() => {
       }
     },
 
+    /* lista de nomes da turma para o painel do professor (formulário de tempo extra) */
+    async listarAlunosAdmin(senha, turma) {
+      try {
+        const dados = await req("rpc/listar_alunos_admin", {
+          method: "POST", headers: { "Prefer": "return=representation" }, body: JSON.stringify({ p_senha: senha, p_turma: turma })
+        });
+        return dados.map(r => r.aluno);
+      } catch (e) { online = false; return []; }
+    },
+
     async listarAlunosExtra(senha, turma) {
       try {
         return await req("rpc/listar_alunos_extra", {
@@ -282,6 +316,32 @@ const NUVEM = (() => {
         online = false;
         return LS.ler("infracoes_local", []).filter(i => i.turma === turma);
       }
+    },
+
+    /* tentativas ATIVAS agora — painel "ao vivo" */
+    async listarTentativasAtivas(senha, turma) {
+      try {
+        return await req("rpc/listar_tentativas_ativas", {
+          method: "POST", headers: { "Prefer": "return=representation" }, body: JSON.stringify({ p_senha: senha, p_turma: turma })
+        });
+      } catch (e) { online = false; return []; }
+    },
+
+    /* soma/subtrai tempo (segundos) de uma tentativa em andamento */
+    async ajustarTempo(senha, tentativaId, deltaSegundos) {
+      return (await this.rpc("ajustar_tempo_tentativa",
+        { p_senha: senha, p_tentativa_id: tentativaId, p_delta_segundos: deltaSegundos })).ok;
+    },
+
+    /* aplica penalidade manual (pontos, escala 0-10) numa tentativa */
+    async aplicarPenalidade(senha, tentativaId, pontos) {
+      return (await this.rpc("aplicar_penalidade_tentativa",
+        { p_senha: senha, p_tentativa_id: tentativaId, p_pontos: pontos })).ok;
+    },
+
+    /* apaga a tentativa do aluno para ele poder refazer a prova */
+    async reiniciarTentativa(senha, tentativaId) {
+      return (await this.rpc("reiniciar_tentativa", { p_senha: senha, p_tentativa_id: tentativaId })).ok;
     }
   };
 })();

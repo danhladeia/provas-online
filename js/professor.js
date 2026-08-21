@@ -9,8 +9,10 @@ let ESTADO = [];
 let TENTS = [];
 let EXTRA = [];
 let INFRA = [];
+let AO_VIVO = [];
 let SENHA = "";
 let turmaSel = "6º ano B";
+let tickAutoAtualiza = null;
 
 const cfgTurma = () => CONFIG.TURMAS.find(t => t.id === turmaSel);
 
@@ -48,7 +50,13 @@ function abrirPainel() {
   $("#login").style.display = "none";
   $("#painel").classList.add("ativo");
   const sel = $("#turma-painel");
-  sel.innerHTML = CONFIG.TURMAS.map(t => `<option value="${t.id}">${t.rotulo}</option>`).join("");
+  const NIVEL_ROTULO = { fundamental: "Ensino Fundamental", medio: "Ensino Médio" };
+  const grupos = {};
+  CONFIG.TURMAS.forEach(t => (grupos[t.nivel || "fundamental"] ||= []).push(t));
+  sel.innerHTML = Object.keys(grupos).map(nivel => `
+    <optgroup label="${NIVEL_ROTULO[nivel] || nivel}">
+      ${grupos[nivel].map(t => `<option value="${t.id}">${t.rotulo}${t.materia ? " — " + t.materia : ""}</option>`).join("")}
+    </optgroup>`).join("");
   sel.value = sessionStorage.getItem("prof_turma") || "6º ano B";
   turmaSel = sel.value;
   sel.onchange = () => {
@@ -59,8 +67,9 @@ function abrirPainel() {
   };
   observaTurma();
   carregar();
+  clearInterval(tickAutoAtualiza);
+  tickAutoAtualiza = setInterval(atualizarAoVivo, 10000);
 }
-if (sessionStorage.getItem("prof_ok") === "1") { SENHA = sessionStorage.getItem("prof_senha") || ""; abrirPainel(); }
 
 /* ---------------------------------------------------- carregar dados */
 async function carregar() {
@@ -70,10 +79,18 @@ async function carregar() {
   TENTS  = await NUVEM.listarTentativas(SENHA, turmaSel);
   EXTRA  = await NUVEM.listarAlunosExtra(SENHA, turmaSel);
   INFRA  = await NUVEM.listarInfracoes(SENHA, turmaSel);
+  AO_VIVO = await NUVEM.listarTentativasAtivas(SENHA, turmaSel);
   const on = NUVEM.online;
   $("#status-nuvem").textContent = on ? "☁ conectado ao Supabase" : "⚠ offline — dados deste aparelho";
   $("#status-nuvem").style.background = on ? "#E8F5E9" : "#FFEBEE";
   desenhar();
+}
+
+/* atualiza só o painel "ao vivo", sem recarregar tudo (roda a cada 10s) */
+async function atualizarAoVivo() {
+  if (!SENHA) return;
+  AO_VIVO = await NUVEM.listarTentativasAtivas(SENHA, turmaSel);
+  desenharAoVivo();
 }
 $("#btn-atualizar").onclick = carregar;
 $("#busca").oninput = desenhar;
@@ -135,6 +152,7 @@ function desenhar() {
   desenharQuestoes();
   desenharPainelPIN();
   desenharInfracoes();
+  desenharAoVivo();
 }
 
 function detalheAluno(a) {
@@ -200,7 +218,7 @@ function desenharPainelPIN() {
 
   $("#vazio-pins").style.display = TENTS.length ? "none" : "block";
   const statusTxt = { "ativa": "🟠 em andamento", "concluida": "✅ concluída" };
-  $("#corpo-pins").innerHTML = TENTS.map(t => `
+  $("#corpo-pins").innerHTML = TENTS.map((t, i) => `
     <tr>
       <td><b>${t.aluno}</b></td>
       <td>${statusTxt[t.status] || t.status}</td>
@@ -208,11 +226,56 @@ function desenharPainelPIN() {
       <td>${fmtData(t.criado_em)}</td>
       <td>${fmtData(t.concluido_em)}</td>
       <td>${t.infracoes ? `<b style="color:var(--erro)">${t.infracoes}</b>` : "0"}</td>
+      <td>${t.id ? `<button class="btn-sec alt" data-reiniciar="${i}">🔄 Reiniciar</button>` : "—"}</td>
     </tr>`).join("");
+
+  $$("[data-reiniciar]").forEach(b => b.onclick = async () => {
+    const t = TENTS[+b.dataset.reiniciar];
+    if (!confirm(`Reiniciar a tentativa de ${t.aluno}? Isso apaga o registro dela e ela poderá refazer a prova com o mesmo PIN.`)) return;
+    await NUVEM.reiniciarTentativa(SENHA, t.id);
+    carregar();
+  });
 
   $("#resumo-alunos-extra").textContent = EXTRA.length
     ? "Tempo extra individual: " + EXTRA.map(x => x.aluno + " " + minutos(x.tempo_extra)).join(" · ")
     : "Nenhum aluno com tempo extra individual.";
+}
+
+/* ---------------------------------------------------- acompanhamento ao vivo */
+function desenharAoVivo() {
+  $("#vazio-ao-vivo").style.display = AO_VIVO.length ? "none" : "block";
+  $("#corpo-ao-vivo").innerHTML = AO_VIVO.map((t, i) => `
+    <tr>
+      <td><b>${t.aluno}</b></td>
+      <td>${t.total_questoes ? `Questão ${Math.min(t.idx_atual + 1, t.total_questoes)} de ${t.total_questoes}` : "iniciando…"}</td>
+      <td>${t.pontos_atual ?? 0}</td>
+      <td>${t.ajuste_tempo > 0 ? "+" : ""}${Math.round((t.ajuste_tempo || 0) / 60)} min</td>
+      <td>${t.penalidade_manual ? `<b style="color:var(--erro)">${(+t.penalidade_manual).toFixed(1).replace(".", ",")}</b>` : "0"}</td>
+      <td class="acoes-ao-vivo">
+        <button class="btn-sec" data-tempo="${i}" data-delta="300">+5 min</button>
+        <button class="btn-sec" data-tempo="${i}" data-delta="-300">-5 min</button>
+        <button class="btn-sec alt" data-pena="${i}" data-delta="1">+1 penal.</button>
+        <button class="btn-sec" data-pena="${i}" data-delta="-1">-1 penal.</button>
+        <button class="btn-sec alt" data-reiniciarvivo="${i}">🔄 Reiniciar</button>
+      </td>
+    </tr>`).join("");
+
+  $$("[data-tempo]").forEach(b => b.onclick = async () => {
+    const t = AO_VIVO[+b.dataset.tempo];
+    await NUVEM.ajustarTempo(SENHA, t.id, +b.dataset.delta);
+    atualizarAoVivo();
+  });
+  $$("[data-pena]").forEach(b => b.onclick = async () => {
+    const t = AO_VIVO[+b.dataset.pena];
+    await NUVEM.aplicarPenalidade(SENHA, t.id, +b.dataset.delta);
+    atualizarAoVivo();
+  });
+  $$("[data-reiniciarvivo]").forEach(b => b.onclick = async () => {
+    const t = AO_VIVO[+b.dataset.reiniciarvivo];
+    if (!confirm(`Reiniciar a tentativa de ${t.aluno}? Ela perde o progresso atual e pode recomeçar do zero.`)) return;
+    await NUVEM.reiniciarTentativa(SENHA, t.id);
+    carregar();
+  });
 }
 
 $("#btn-alterna-aberta").onclick = async () => {
@@ -285,10 +348,14 @@ $("#btn-pendentes").onclick = async () => {
   carregar();
 };
 
-/* preenche o seletor de alunos do formulário de tempo extra */
-const observaTurma = () => {
-  const lista = CONFIG.ALUNOS[turmaSel] || [];
-  $("#extra-aluno-nome").innerHTML =
-    `<option value="">— Aluno —</option>` +
+/* preenche o seletor de alunos do formulário de tempo extra (nomes vêm do Supabase) */
+const observaTurma = async () => {
+  const sel = $("#extra-aluno-nome");
+  sel.innerHTML = `<option value="">Carregando…</option>`;
+  const lista = await NUVEM.listarAlunosAdmin(SENHA, turmaSel);
+  sel.innerHTML = `<option value="">— Aluno —</option>` +
     lista.slice().sort((a, b) => a.localeCompare(b, "pt-BR")).map(n => `<option value="${n}">${n}</option>`).join("");
 };
+
+/* ---------------------------------------------------- sessão do professor */
+if (sessionStorage.getItem("prof_ok") === "1") { SENHA = sessionStorage.getItem("prof_senha") || ""; abrirPainel(); }

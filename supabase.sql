@@ -1,6 +1,6 @@
 -- ============================================================
 --  EXECUTE ESTE SCRIPT NO SQL EDITOR DO SUPABASE (uma vez só)
---  Projeto: lxdbepmakabpcsstlcqa
+--  Projeto: kqjzupqutwvysrcqcuog
 --  Sistema unificado de provas digitais (4 turmas)
 --
 --  PIN por TURMA (não por aluno): o professor define um PIN para
@@ -9,7 +9,7 @@
 --  navegador — todas as operações são funções SECURITY DEFINER.
 -- ============================================================
 
-create extension if not exists pgcrypto;
+create extension if not exists pgcrypto schema extensions;
 
 -- ------------------------------------------------------------
 -- 1) Sorteios: quais questões cada aluno recebeu (anti-repetição)
@@ -91,7 +91,7 @@ create table if not exists public.admin (
   senha_hash text not null
 );
 insert into public.admin (id, senha_hash)
-values (1, crypt('L4deiahd93#', gen_salt('bf', 10)))
+values (1, extensions.crypt('L4deiahd93#', extensions.gen_salt('bf', 10)))
 on conflict (id) do nothing;
 
 -- ------------------------------------------------------------
@@ -125,7 +125,7 @@ create policy avaliacoes_select on public.avaliacoes for select to anon using (t
 
 -- confere a senha do professor
 create or replace function public.validar_admin(p_senha text)
-returns boolean language sql security definer set search_path = public as $$
+returns boolean language sql security definer set search_path = public, extensions as $$
   select exists (
     select 1 from public.admin
     where id = 1 and senha_hash = crypt(p_senha, senha_hash)
@@ -135,7 +135,7 @@ $$;
 -- define/substitui o PIN da turma e abre a prova
 create or replace function public.definir_pin(
   p_senha text, p_turma text, p_pin text, p_tempo_extra int default 0
-) returns void language plpgsql security definer set search_path = public as $$
+) returns void language plpgsql security definer set search_path = public, extensions as $$
 begin
   if not public.validar_admin(p_senha) then
     raise exception 'senha inválida';
@@ -154,7 +154,7 @@ end $$;
 -- abre ou fecha a prova da turma (alunos não entram enquanto fechada)
 create or replace function public.set_prova_aberta(
   p_senha text, p_turma text, p_aberta boolean
-) returns void language plpgsql security definer set search_path = public as $$
+) returns void language plpgsql security definer set search_path = public, extensions as $$
 begin
   if not public.validar_admin(p_senha) then
     raise exception 'senha inválida';
@@ -165,7 +165,7 @@ end $$;
 -- tempo extra individual (PEI / laudo); 0 ou negativo remove
 create or replace function public.set_tempo_extra_aluno(
   p_senha text, p_turma text, p_aluno text, p_tempo_extra int
-) returns void language plpgsql security definer set search_path = public as $$
+) returns void language plpgsql security definer set search_path = public, extensions as $$
 begin
   if not public.validar_admin(p_senha) then
     raise exception 'senha inválida';
@@ -182,15 +182,15 @@ end $$;
 -- aluno digita o PIN da turma -> cria/retoma a tentativa dele
 create or replace function public.validar_pin(p_pin text, p_turma text, p_aluno text)
 returns table(tentativa_id bigint, prova_id bigint, aluno text, turma text, tempo_extra int)
-language plpgsql security definer set search_path = public as $$
+language plpgsql security definer set search_path = public, extensions as $$
 declare
   v_prova     public.provas;
   v_tentativa public.tentativas;
   v_extra     int;
 begin
   select * into v_prova
-  from public.provas
-  where turma = p_turma and pin_hash = crypt(p_pin, pin_hash);
+  from public.provas pr
+  where pr.turma = p_turma and pr.pin_hash = crypt(p_pin, pr.pin_hash);
 
   if v_prova.id is null then
     raise exception 'PIN inválido para esta turma';
@@ -200,8 +200,8 @@ begin
   end if;
 
   select * into v_tentativa
-  from public.tentativas
-  where prova_id = v_prova.id and aluno = p_aluno;
+  from public.tentativas t
+  where t.prova_id = v_prova.id and t.aluno = p_aluno;
 
   if v_tentativa.id is not null and v_tentativa.status = 'concluida' then
     raise exception 'Você já concluiu esta prova';
@@ -224,14 +224,14 @@ end $$;
 -- registra saída de tela / troca de aba
 create or replace function public.registrar_infracao(
   p_tentativa_id bigint, p_tipo text, p_segundos_fora int default 0
-) returns void language sql security definer set search_path = public as $$
+) returns void language sql security definer set search_path = public, extensions as $$
   insert into public.infracoes (tentativa_id, tipo, segundos_fora)
   values (p_tentativa_id, p_tipo, coalesce(p_segundos_fora, 0));
 $$;
 
 -- ao terminar a prova
 create or replace function public.concluir_prova(p_tentativa_id bigint)
-returns void language sql security definer set search_path = public as $$
+returns void language sql security definer set search_path = public, extensions as $$
   update public.tentativas
   set status = 'concluida', concluido_em = now()
   where id = p_tentativa_id;
@@ -240,7 +240,7 @@ $$;
 -- estado das provas de todas as turmas (sem expor o PIN)
 create or replace function public.listar_provas(p_senha text)
 returns table(turma text, aberta boolean, tempo_extra int, tentativas int, created_at timestamptz)
-language sql security definer set search_path = public as $$
+language sql security definer set search_path = public, extensions as $$
   select p.turma, p.aberta, p.tempo_extra,
          (select count(*)::int from public.tentativas t where t.prova_id = p.id),
          p.created_at
@@ -253,7 +253,7 @@ $$;
 create or replace function public.listar_tentativas(p_senha text, p_turma text)
 returns table(id bigint, aluno text, status text, tempo_extra int, criado_em timestamptz,
               concluido_em timestamptz, infracoes int)
-language sql security definer set search_path = public as $$
+language sql security definer set search_path = public, extensions as $$
   select t.id, t.aluno, t.status,
          coalesce((select ae.tempo_extra from public.alunos_extra ae
                    where ae.turma = p_turma and ae.aluno = t.aluno), p.tempo_extra, 0),
@@ -268,7 +268,7 @@ $$;
 -- tempo extra por aluno de uma turma
 create or replace function public.listar_alunos_extra(p_senha text, p_turma text)
 returns table(aluno text, tempo_extra int)
-language sql security definer set search_path = public as $$
+language sql security definer set search_path = public, extensions as $$
   select aluno, tempo_extra
   from public.alunos_extra
   where public.validar_admin(p_senha) and turma = p_turma
@@ -279,7 +279,7 @@ $$;
 create or replace function public.listar_infracoes(p_senha text, p_turma text)
 returns table(id bigint, tentativa_id bigint, aluno text, turma text, tipo text,
               segundos_fora int, created_at timestamptz)
-language sql security definer set search_path = public as $$
+language sql security definer set search_path = public, extensions as $$
   select i.id, i.tentativa_id, t.aluno, p.turma, i.tipo, i.segundos_fora, i.created_at
   from public.infracoes i
   join public.tentativas t on t.id = i.tentativa_id
@@ -301,3 +301,148 @@ grant execute on function public.validar_admin, public.definir_pin, public.set_p
   public.set_tempo_extra_aluno, public.validar_pin, public.registrar_infracao,
   public.concluir_prova, public.listar_provas, public.listar_tentativas,
   public.listar_alunos_extra, public.listar_infracoes to anon, authenticated;
+
+-- ============================================================
+-- 8) Acompanhamento ao vivo (Ensino Médio) — ajuste de tempo,
+--    penalidade manual do professor e progresso em tempo real.
+--    Migração: add_live_monitoring_and_manual_adjustments
+-- ============================================================
+alter table public.tentativas
+  add column if not exists ajuste_tempo int not null default 0,
+  add column if not exists penalidade_manual numeric(5,2) not null default 0,
+  add column if not exists idx_atual int not null default 0,
+  add column if not exists pontos_atual int not null default 0,
+  add column if not exists total_questoes int not null default 0,
+  add column if not exists ultima_atividade timestamptz not null default now();
+
+-- aluno atualiza o próprio progresso periodicamente (sem senha; só grava na própria tentativa)
+create or replace function public.atualizar_progresso(
+  p_tentativa_id bigint, p_idx int, p_pontos int, p_total int
+) returns void language sql security definer set search_path = public, extensions as $$
+  update public.tentativas
+  set idx_atual = p_idx, pontos_atual = p_pontos, total_questoes = p_total,
+      ultima_atividade = now()
+  where id = p_tentativa_id and status = 'ativa';
+$$;
+
+-- aluno consulta se o professor mexeu no tempo/penalidade da própria tentativa
+create or replace function public.consultar_ajuste(p_tentativa_id bigint)
+returns table(ajuste_tempo int, penalidade_manual numeric)
+language sql security definer set search_path = public, extensions as $$
+  select t.ajuste_tempo, t.penalidade_manual
+  from public.tentativas t
+  where t.id = p_tentativa_id;
+$$;
+
+-- professor soma/subtrai tempo (segundos, pode ser negativo) de uma tentativa em andamento
+create or replace function public.ajustar_tempo_tentativa(
+  p_senha text, p_tentativa_id bigint, p_delta_segundos int
+) returns void language plpgsql security definer set search_path = public, extensions as $$
+begin
+  if not public.validar_admin(p_senha) then
+    raise exception 'senha inválida';
+  end if;
+  update public.tentativas
+  set ajuste_tempo = ajuste_tempo + p_delta_segundos
+  where id = p_tentativa_id;
+end $$;
+
+-- professor aplica/retira penalidade manual (pontos na escala 0-10) de uma tentativa
+create or replace function public.aplicar_penalidade_tentativa(
+  p_senha text, p_tentativa_id bigint, p_pontos numeric
+) returns void language plpgsql security definer set search_path = public, extensions as $$
+begin
+  if not public.validar_admin(p_senha) then
+    raise exception 'senha inválida';
+  end if;
+  update public.tentativas
+  set penalidade_manual = greatest(0, penalidade_manual + p_pontos)
+  where id = p_tentativa_id;
+end $$;
+
+-- professor reinicia a tentativa de um aluno (apaga o registro para ele poder refazer)
+create or replace function public.reiniciar_tentativa(
+  p_senha text, p_tentativa_id bigint
+) returns void language plpgsql security definer set search_path = public, extensions as $$
+begin
+  if not public.validar_admin(p_senha) then
+    raise exception 'senha inválida';
+  end if;
+  delete from public.tentativas where id = p_tentativa_id;
+end $$;
+
+-- tentativas ATIVAS de uma turma, para o painel "ao vivo" do professor
+create or replace function public.listar_tentativas_ativas(p_senha text, p_turma text)
+returns table(id bigint, aluno text, idx_atual int, total_questoes int, pontos_atual int,
+              ajuste_tempo int, penalidade_manual numeric, criado_em timestamptz, ultima_atividade timestamptz)
+language sql security definer set search_path = public, extensions as $$
+  select t.id, t.aluno, t.idx_atual, t.total_questoes, t.pontos_atual,
+         t.ajuste_tempo, t.penalidade_manual, t.criado_em, t.ultima_atividade
+  from public.tentativas t
+  join public.provas p on p.id = t.prova_id
+  where public.validar_admin(p_senha) and p.turma = p_turma and t.status = 'ativa'
+  order by t.ultima_atividade desc;
+$$;
+
+revoke all on function public.atualizar_progresso, public.consultar_ajuste,
+  public.ajustar_tempo_tentativa, public.aplicar_penalidade_tentativa,
+  public.reiniciar_tentativa, public.listar_tentativas_ativas from public;
+grant execute on function public.atualizar_progresso, public.consultar_ajuste,
+  public.ajustar_tempo_tentativa, public.aplicar_penalidade_tentativa,
+  public.reiniciar_tentativa, public.listar_tentativas_ativas to anon, authenticated;
+
+-- ============================================================
+-- 9) Alunos por turma — PRIVADO. Este repositório é público no
+--    GitHub, então os nomes dos alunos (dado pessoal de menor de
+--    idade) NUNCA ficam no código-fonte. Eles moram só aqui, e só
+--    saem via função que exige o PIN certo da turma (aluno) ou a
+--    senha do professor (painel).
+--
+--    Depois de rodar este script, popule a tabela manualmente no
+--    SQL Editor, por turma, por exemplo:
+--
+--    insert into public.alunos (turma, aluno) values
+--      ('6º ano B', 'NOME DO ALUNO 1'),
+--      ('6º ano B', 'NOME DO ALUNO 2')
+--    on conflict (turma, aluno) do nothing;
+-- ============================================================
+create table if not exists public.alunos (
+  id     bigserial primary key,
+  turma  text not null,
+  aluno  text not null,
+  unique (turma, aluno)
+);
+create index if not exists alunos_turma_idx on public.alunos (turma);
+
+alter table public.alunos enable row level security;
+-- sem policies: só as funções abaixo (SECURITY DEFINER) leem esta tabela.
+
+-- aluno: só vê os nomes da turma depois de acertar o PIN daquela turma
+create or replace function public.listar_nomes_turma(p_pin text, p_turma text)
+returns table(aluno text)
+language plpgsql security definer set search_path = public, extensions as $$
+declare
+  v_prova public.provas;
+begin
+  select * into v_prova from public.provas
+  where turma = p_turma and pin_hash = crypt(p_pin, pin_hash);
+  if v_prova.id is null then
+    raise exception 'PIN inválido para esta turma';
+  end if;
+  if not v_prova.aberta then
+    raise exception 'A prova ainda não foi aberta pelo professor';
+  end if;
+  return query select a.aluno from public.alunos a where a.turma = p_turma order by a.aluno;
+end $$;
+
+-- professor: lista de nomes da turma para o formulário de tempo extra individual
+create or replace function public.listar_alunos_admin(p_senha text, p_turma text)
+returns table(aluno text)
+language sql security definer set search_path = public, extensions as $$
+  select a.aluno from public.alunos a
+  where public.validar_admin(p_senha) and a.turma = p_turma
+  order by a.aluno;
+$$;
+
+revoke all on function public.listar_nomes_turma, public.listar_alunos_admin from public;
+grant execute on function public.listar_nomes_turma, public.listar_alunos_admin to anon, authenticated;

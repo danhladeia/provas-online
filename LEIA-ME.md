@@ -90,12 +90,12 @@ que ele deu, o gabarito, a explicação, o tempo gasto e o valor obtido em cada 
 ## 5. Arquivos
 
 ```
-index.html          prova unificada (turma → nome → PIN → prova → resultado)
+index.html          prova unificada (turma → PIN → nome → prova → resultado)
 professor.html      área do professor (turma, PINs, infrações, notas)
 supabase.sql        script das tabelas + funções seguras (rodar uma vez)
 ABRIR PROVA.bat     sobe o servidor local e abre o navegador
 css/estilo.css      visual
-js/config.js        turmas, listas de alunos, pesos, chaves do Supabase
+js/config.js        turmas, pesos, chaves do Supabase (SEM nomes de aluno)
 js/banco.js         banco do 6º ano (30 questões)
 js/banco7.js        banco do 7º ano (30 questões)
 js/banco8.js        banco do 8º ano (30 questões)
@@ -109,7 +109,10 @@ assets/sprites/     64 ilustrações com fundo transparente
 ### Ajustes rápidos (`js/config.js`)
 - `TURMAS` — temas, `distribuicao`, `pesos`, `fatorMinimo`, `multiplicadorTempo`,
   `tempoTotal` (segundos) por turma.
-- `ALUNOS` — listas de nomes por turma (o aluno escolhe o próprio nome).
+- Nomes de alunos **não ficam no código** (o repositório é público no GitHub). Eles moram na
+  tabela `alunos` do Supabase e só são liberados pela função `listar_nomes_turma` depois que o
+  aluno digita o PIN certo da turma. Para cadastrar/editar nomes, use o SQL Editor do Supabase:
+  `insert into public.alunos (turma, aluno) values ('6º ano B', 'NOME DO ALUNO') on conflict (turma, aluno) do nothing;`
 - A **senha do professor não fica no código**: ela é validada no banco por `validar_admin`
   (hash bcrypt criado no `supabase.sql`). Para trocar, rode `supabase.sql` com a nova senha.
 - `toleranciaSaida` — tolerância em ms antes de registrar uma saída de tela.

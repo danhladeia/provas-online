@@ -170,6 +170,28 @@ function iniciarTempoTotal() {
   S.tickTotal = setInterval(pinta, 500);
 }
 
+/* ---------------------------------------------------- ajustes ao vivo do professor
+   (tempo extra / penalidade aplicados durante a prova, no painel do professor) */
+function iniciarPolAjustes() {
+  clearInterval(S.tickAjuste);
+  if (String(S.tentativaId).startsWith("local-")) return;
+  S.tickAjuste = setInterval(async () => {
+    if (!S.andamento) return;
+    const aj = await NUVEM.consultarAjuste(S.tentativaId);
+    if (!aj) return;
+    const novo = (aj.ajuste_tempo || 0) - S.ajusteAplicado;
+    if (novo !== 0) {
+      S.tempoTotal += novo;
+      S.ajusteAplicado = aj.ajuste_tempo || 0;
+      const el = $("#hud-tempo-total");
+      if (el) {
+        el.classList.add(novo > 0 ? "tempo-bonus" : "tempo-punido");
+        setTimeout(() => el.classList.remove("tempo-bonus", "tempo-punido"), 2500);
+      }
+    }
+  }, 12000);
+}
+
 async function forcarFinalizar() {
   if (!S.andamento || S.finalizando) return;
   S.finalizando = true;
@@ -200,20 +222,19 @@ function selecionarTurma(id) {
   S.cfg = cfgTurma();
   S.banco = BANCOS[id] || { categorias: [], questoes: [] };
   const turma = CONFIG.TURMAS.find(t => t.id === id);
+  const d = turma.distribuicao || { 1: 4, 2: 3, 3: 3 };
+  const total = d[1] + d[2] + d[3];
   $("#sel-turma-titulo").textContent = turma.rotulo;
   $("#sel-turma-tema").innerHTML =
-    `<b>Tema:</b> ${turma.tema} Você vai responder <b>10 questões sorteadas</b>:
-     4 fáceis, 3 médias e 3 difíceis. Tempo total: <b>${fmtTempo(turma.tempoTotal || 1500)}</b>.`;
-  const lista = CONFIG.ALUNOS[id] || [];
-  $("#nome-aluno").innerHTML =
-    `<option value="">— Escolha o seu nome —</option>` +
-    lista.slice().sort((a, b) => a.localeCompare(b, "pt-BR")).map(n =>
-      `<option value="${n}">${n}</option>`).join("");
-  $("#nome-aluno").disabled = false;
-  $("#btn-comecar").disabled = false;
+    `<b>${turma.materia ? turma.materia + " — " : ""}Tema:</b> ${turma.tema} Você vai responder
+     <b>${total} questões sorteadas</b>: ${d[1]} fáceis, ${d[2]} médias e ${d[3]} difíceis.
+     Tempo total: <b>${fmtTempo(turma.tempoTotal || 1500)}</b>.`;
+  S.pinAtual = "";
   $("#pin-aluno").value = "";
-  $("#pin-aluno").disabled = false;
+  $("#aviso-pin-primeiro").textContent = "";
   $("#aviso-nome").textContent = "";
+  $("#form-pin-primeiro").style.display = "";
+  $("#form-inicio").style.display = "none";
   const rec = NUVEM.recuperarSessao();
   const banner = $("#retomar-banner");
   if (rec && rec.turma === id && rec.tentativaId) {
@@ -227,12 +248,40 @@ function selecionarTurma(id) {
   irPara("tela-nome");
 }
 
+/* etapa 1: valida o PIN da turma e só então libera a lista de nomes
+   (a lista nunca fica no código — vem do banco, liberada pelo PIN certo) */
+async function validarPinEMostrarNomes(ev) {
+  ev.preventDefault();
+  const pin = $("#pin-aluno").value.trim();
+  if (pin.length < 4) { $("#aviso-pin-primeiro").textContent = "Digite o PIN que o professor informou."; return; }
+
+  const btn = $("#btn-validar-pin");
+  btn.disabled = true;
+  btn.textContent = "Validando…";
+
+  const nomes = await NUVEM.listarNomesTurma(pin, S.turma);
+  btn.disabled = false;
+  btn.textContent = "Validar PIN";
+
+  if (!nomes || !nomes.length) {
+    $("#aviso-pin-primeiro").textContent = "PIN inválido, prova fechada ou sem conexão. Confira com o professor.";
+    return;
+  }
+
+  S.pinAtual = pin;
+  $("#nome-aluno").innerHTML =
+    `<option value="">— Escolha o seu nome —</option>` +
+    nomes.map(n => `<option value="${n}">${n}</option>`).join("");
+  $("#form-pin-primeiro").style.display = "none";
+  $("#form-inicio").style.display = "";
+  $("#nome-aluno").focus();
+}
+
 async function comecarProva(ev) {
   ev.preventDefault();
   const nome = $("#nome-aluno").value;
   if (!nome) { $("#aviso-nome").textContent = "Escolha o seu nome na lista."; return; }
-  const pin = $("#pin-aluno").value.trim();
-  if (pin.length < 4) { $("#aviso-nome").textContent = "Digite o PIN que o professor informou."; return; }
+  const pin = S.pinAtual;
 
   const btn = $("#btn-comecar");
   btn.disabled = true;
@@ -256,16 +305,41 @@ async function comecarProva(ev) {
   S.questoes = await sortearQuestoes(nome);
   S.idx = 0; S.registros = []; S.pontos = 0;
   S.sequencia = 0; S.melhorSequencia = 0; S.infracoes = 0; S.finalizando = false;
+  S.ajusteAplicado = 0;
+
+  btn.disabled = false;
+  btn.textContent = "🏁 Começar a avaliação";
+  abrirPortaoTelaCheia(iniciarProvaAgora);
+}
+
+/* a prova só começa depois que o aluno confirma a entrada em tela cheia
+   (precisa ser um gesto direto do usuário — por isso fica numa tela própria,
+   sem nenhum await entre o clique e o requestFullscreen). */
+function abrirPortaoTelaCheia(aoConfirmar) {
+  irPara("tela-gate");
+  $("#btn-gate-tela-cheia").onclick = () => {
+    const el = document.documentElement;
+    const pedir = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen;
+    const prossegue = () => aoConfirmar();
+    try {
+      const p = pedir ? pedir.call(el) : null;
+      Promise.resolve(p).then(prossegue).catch(prossegue);
+    } catch {
+      prossegue();
+    }
+  };
+}
+
+function iniciarProvaAgora() {
   S.prova0 = Date.now();
   S.andamento = true;
-
-  $("#hud-aluno").textContent = nome;
+  $("#hud-aluno").textContent = S.aluno;
   $("#hud-tempo-total").classList.remove("esgotou");
   irPara("tela-prova");
   mostrarQuestao();
   iniciarTempoTotal();
+  iniciarPolAjustes();
   salvarProgresso();
-  entrarTelaCheia();
   window.onbeforeunload = () => "Sua prova está em andamento. Sair agora perde tudo.";
 }
 
@@ -282,16 +356,20 @@ function retomarSessao() {
   S.idx = rec.idx || 0; S.registros = rec.registros || [];
   S.pontos = rec.pontos || 0; S.sequencia = rec.sequencia || 0;
   S.melhorSequencia = rec.melhorSequencia || 0; S.infracoes = rec.infracoes || 0;
+  S.ajusteAplicado = 0;
   S.prova0 = Date.now() - (rec.tempoDecorrido || 0);
-  S.finalizando = false; S.andamento = true;
+  S.finalizando = false;
 
-  $("#hud-aluno").textContent = S.aluno;
-  $("#hud-tempo-total").classList.remove("esgotou");
-  irPara("tela-prova");
-  mostrarQuestao();
-  iniciarTempoTotal();
-  entrarTelaCheia();
-  window.onbeforeunload = () => "Sua prova está em andamento. Sair agora perde tudo.";
+  abrirPortaoTelaCheia(() => {
+    S.andamento = true;
+    $("#hud-aluno").textContent = S.aluno;
+    $("#hud-tempo-total").classList.remove("esgotou");
+    irPara("tela-prova");
+    mostrarQuestao();
+    iniciarTempoTotal();
+    iniciarPolAjustes();
+    window.onbeforeunload = () => "Sua prova está em andamento. Sair agora perde tudo.";
+  });
 }
 
 function salvarProgresso() {
@@ -303,6 +381,7 @@ function salvarProgresso() {
     registros: S.registros, pontos: S.pontos,
     sequencia: S.sequencia, melhorSequencia: S.melhorSequencia, infracoes: S.infracoes
   });
+  NUVEM.atualizarProgresso(S.tentativaId, S.idx, S.pontos, S.questoes.length);
 }
 
 /* ---------------------------------------------------- render questão */
@@ -783,6 +862,7 @@ async function finalizar(forcado = false) {
   window.onbeforeunload = null;
   clearInterval(S.tick);
   clearInterval(S.tickTotal);
+  clearInterval(S.tickAjuste);
   const tempoTotal = Math.round((Date.now() - S.prova0) / 1000);
 
   const somaPesos = S.questoes.reduce((s, q) => s + S.cfg.pesos[q.nivel], 0);
@@ -790,7 +870,13 @@ async function finalizar(forcado = false) {
     const r = S.registros[i];
     return s + S.cfg.pesos[q.nivel] * (r ? r.fracao : 0) * (r ? r.fator : 1);
   }, 0);
-  const nota = Math.round((obtido / somaPesos) * 10 * 100) / 100;
+  const notaBase = (obtido / somaPesos) * 10;
+
+  /* punição automática por saída de tela/aba + penalidade manual do professor */
+  const aj = await NUVEM.consultarAjuste(S.tentativaId);
+  const penalidadeManual = (aj && aj.penalidade_manual) || 0;
+  const penalidadeAuto = S.infracoes * (S.cfg.penalidadeInfracao || 0);
+  const nota = Math.round(Math.max(0, notaBase - penalidadeAuto - penalidadeManual) * 100) / 100;
   const acertos = S.registros.reduce((s, r) => s + (r ? r.fracao : 0), 0);
 
   const medalha = nota >= 8 ? "medalha_ouro" : nota >= 6 ? "medalha_prata" : nota >= 4 ? "medalha_bronze" : "mascote_erro";
@@ -808,7 +894,8 @@ async function finalizar(forcado = false) {
     <p class="fim-aluno">${S.aluno}</p>
     <div class="nota-grande"><span>${nota.toFixed(2).replace(".", ",")}</span><small>nota final</small></div>
     <p class="fim-recado">${recado}</p>
-    ${S.infracoes ? `<p class="fim-aviso">⚠️ Registradas ${S.infracoes} saída(s) de tela durante a prova.</p>` : ""}
+    ${S.infracoes ? `<p class="fim-aviso">⚠️ Registradas ${S.infracoes} saída(s) de tela durante a prova.${penalidadeAuto ? ` Desconto automático: ${penalidadeAuto.toFixed(1).replace(".", ",")} ponto(s).` : ""}</p>` : ""}
+    ${penalidadeManual ? `<p class="fim-aviso">⚠️ O professor aplicou uma penalidade manual de ${penalidadeManual.toFixed(1).replace(".", ",")} ponto(s).</p>` : ""}
     <div class="fim-numeros">
       <div><b>${acertos.toFixed(1).replace(".", ",")}</b><span>de ${S.questoes.length} questões</span></div>
       <div><b>${S.pontos}</b><span>pontos de XP</span></div>
@@ -942,20 +1029,29 @@ function vigiarFoco() {
 
 /* ---------------------------------------------------- início */
 document.addEventListener("DOMContentLoaded", () => {
-  /* turmas */
+  /* turmas, agrupadas por nível (Ensino Fundamental / Ensino Médio) */
   const grade = $("#grade-turmas");
-  grade.innerHTML = CONFIG.TURMAS.map(t => `
-    <button class="card-turma" data-id="${t.id}">
-      <span class="turma-nome">${t.rotulo}</span>
-      <span class="turma-tema">${t.tema}</span>
-    </button>`).join("");
+  const NIVEL_ROTULO = { fundamental: "📘 Ensino Fundamental", medio: "🎓 Ensino Médio" };
+  const grupos = {};
+  CONFIG.TURMAS.forEach(t => (grupos[t.nivel || "fundamental"] ||= []).push(t));
+  grade.innerHTML = Object.keys(grupos).map(nivel => `
+    <section class="grupo-nivel">
+      <h2 class="grupo-nivel-titulo">${NIVEL_ROTULO[nivel] || nivel}</h2>
+      <div class="grade-turmas">${grupos[nivel].map(t => `
+        <button class="card-turma" data-id="${t.id}">
+          <span class="turma-nome">${t.rotulo}</span>
+          ${t.materia ? `<span class="turma-materia">${t.materia}</span>` : ""}
+          <span class="turma-tema">${t.tema}</span>
+        </button>`).join("")}</div>
+    </section>`).join("");
   grade.querySelectorAll(".card-turma").forEach(b =>
     b.onclick = () => { Som.clique(); selecionarTurma(b.dataset.id); });
 
   $("#btn-trocar-turma").onclick = () => irPara("tela-inicio");
+  $("#form-pin-primeiro").addEventListener("submit", validarPinEMostrarNomes);
   $("#form-inicio").addEventListener("submit", comecarProva);
   $("#nome-aluno").addEventListener("change", () => $("#aviso-nome").textContent = "");
-  $("#pin-aluno").addEventListener("input", () => $("#aviso-nome").textContent = "");
+  $("#pin-aluno").addEventListener("input", () => $("#aviso-pin-primeiro").textContent = "");
 
   vigiarFoco();
 });

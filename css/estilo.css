@@ -386,7 +386,17 @@ button{font-family:inherit; cursor:pointer}
 }
 #hud-tempo-total.urgente{background:var(--erro); animation:pisca 1s infinite}
 #hud-tempo-total.esgotou{background:var(--erro)}
+#hud-tempo-total.tempo-bonus{background:var(--acerto); animation:pisca .6s 2}
+#hud-tempo-total.tempo-punido{background:var(--erro); animation:pisca .6s 2}
 @keyframes pisca{50%{opacity:.55}}
+
+.grupo-nivel{margin-bottom:14px}
+.grupo-nivel-titulo{font-size:16px; margin:18px 0 4px; color:var(--tinta); opacity:.75}
+.card-turma .turma-materia{font-size:12px; font-weight:bold; text-transform:uppercase;
+  letter-spacing:.04em; color:var(--marca)}
+
+.acoes-ao-vivo{display:flex; gap:6px; flex-wrap:wrap}
+.acoes-ao-vivo .btn-sec{padding:6px 10px; font-size:12px}
 
 /* cor das caixas de classificar por posição (funciona para todas as turmas) */
 .caixa.cat-0{border-color:var(--invasao)}

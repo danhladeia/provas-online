@@ -72,6 +72,19 @@
       <tbody id="corpo-questoes"></tbody>
     </table>
 
+    <h2 style="margin-top:30px; font-size:20px">🔴 Acompanhamento ao vivo</h2>
+    <p style="color:var(--cinza); font-size:14px; margin-top:-6px">
+      Alunos com a prova em andamento agora. Dá para somar/tirar tempo e aplicar ou remover
+      penalidade manual de uma tentativa em andamento.
+    </p>
+    <table class="tabela-notas" id="tabela-ao-vivo">
+      <thead><tr><th>Aluno</th><th>Progresso</th><th>Pontos</th><th>Ajuste de tempo</th><th>Penalidade manual</th><th>Ações</th></tr></thead>
+      <tbody id="corpo-ao-vivo"></tbody>
+    </table>
+    <div id="vazio-ao-vivo" class="vazio" style="display:none">
+      Ninguém está fazendo a prova desta turma agora.
+    </div>
+
     <h2 style="margin-top:30px; font-size:20px">🔑 PIN da turma</h2>
     <p style="color:var(--cinza); font-size:14px; margin-top:-6px">
       Um único PIN por turma — todos os alunos usam o mesmo. A prova só aceita PIN enquanto estiver <b>aberta</b>.
@@ -130,7 +143,7 @@
     </form>
 
     <table class="tabela-notas" id="tabela-pins">
-      <thead><tr><th>Aluno</th><th>Status</th><th>Tempo extra</th><th>Início</th><th>Fim</th><th>Saídas</th></tr></thead>
+      <thead><tr><th>Aluno</th><th>Status</th><th>Tempo extra</th><th>Início</th><th>Fim</th><th>Saídas</th><th>Ações</th></tr></thead>
       <tbody id="corpo-pins"></tbody>
     </table>
     <div id="vazio-pins" class="vazio" style="display:none">
@@ -158,6 +171,8 @@
 <script src="js/banco7.js"></script>
 <script src="js/banco8.js"></script>
 <script src="js/banco9.js"></script>
+<script src="js/banco-agro.js"></script>
+<script src="js/banco-3a.js"></script>
 <script src="js/professor.js"></script>
 </body>
 </html>
